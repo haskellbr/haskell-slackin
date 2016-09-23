@@ -1,0 +1,17 @@
+name: haskell-slackin
+version: '0.1.0.0'
+author: yamadapc
+maintainer: tacla.yamada@gmail.com
+license: MIT
+extra-source-files:
+- ChangeLog.md
+
+dependencies:
+- base >=4.9 && <4.10
+- yesod
+
+executables:
+  haskell-slackin:
+    main: Main.hs
+    source-dirs:
+    - src
