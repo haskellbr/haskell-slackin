@@ -2,6 +2,8 @@
 Uma re-implementação parcial da aplicação de convites do Slack `slackin` em
 Haskell, para servir como um exemplo de um WebApp não trivial em Haskell.
 
+## Como ler
+
 Cada etapa do processo de implementação está separada em um branch do
 repositório. Deve ser possível acompanhar a implementação pelo histórico do
 `git`.
@@ -9,20 +11,20 @@ repositório. Deve ser possível acompanhar a implementação pelo histórico do
 O que você pode esperar aprender aqui, no momento (tenho que limpar os branches
 para fazer um tutorial mais claro):
 
-## `1-initial-steps`
+### `1-initial-steps`
 - Configurando o projeto
 - Adicionando o Yesod, sem nenhum boilerplate
 - Servindo HTML com o Yesod e Hamlet
 - Servindo formulários usando a geração de forms do Yesod
 - Capturando os dados do formulário e servindo uma página de confirmação
 
-## `2-slack-invite`
+### `2-slack-invite`
 - Enviando um invite do Slack para os e-mails capturados pelo formulário por
   meio da sua API HTTP
 - Ler a configuração (organização e token do Slack) das variáveis do ambiente e
   adicionar esses dados ao estado da aplicação
 
-## `3-slack-presence`
+### `3-slack-presence`
 - Adicionar threads de background para nossa aplicação
 - Compartilhar o estado entre essas threads e implementar publish-subscribe
   usando STM e channels
@@ -32,6 +34,12 @@ para fazer um tutorial mais claro):
 - Receber esses eventos no cliente
 - Gerar classes para serializar o estado do Slack em JSON
 - Ler o estado compartilhado e o enviar no primeiro render dos templates
+
+## Como rodar
+```
+stack build
+SLACK_ORGANIZATION="..." SLACK_TOKEN="..." stack exec haskell-slackin
+```
 
 - - -
 
