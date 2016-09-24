@@ -21,4 +21,5 @@ executable haskell-slackin
   build-depends:
       base >=4.9 && <4.10
     , yesod
+    , text
   default-language: Haskell2010

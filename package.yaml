@@ -9,6 +9,7 @@ extra-source-files:
 dependencies:
 - base >=4.9 && <4.10
 - yesod
+- text
 
 executables:
   haskell-slackin:

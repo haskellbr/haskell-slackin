@@ -4,12 +4,13 @@
 {-# LANGUAGE GADTs                 #-}
 {-# LANGUAGE TypeFamilies          #-}
 {-# LANGUAGE TemplateHaskell       #-}
+import           Data.Text (Text)
 import           Yesod
 
 data App = App
 
 mkYesod "App" [parseRoutes|
-/ HomeR GET
+/ HomeR GET POST
 |]
 
 instance Yesod App where
@@ -31,6 +32,17 @@ getHomeR = do
                   ^{widget}
                   <button type=submit>Submit
         |]
+
+postHomeR :: Handler Html
+postHomeR = do
+    ((result, widget), enctype) <- runFormPost emailForm
+    case result of
+        FormSuccess email -> defaultLayout [whamlet|<p>#{show email}|]
+        _ -> defaultLayout
+            [whamlet|
+                    <h1>
+                      Haskell Slackin
+            |]
 
 main :: IO ()
 main = warp 3000 App
