@@ -33,11 +33,20 @@ getHomeR = do
                   <button type=submit>Submit
         |]
 
+slackInvite email = return ()
+
 postHomeR :: Handler Html
 postHomeR = do
     ((result, widget), enctype) <- runFormPost emailForm
     case result of
-        FormSuccess email -> defaultLayout [whamlet|<p>#{show email}|]
+        FormSuccess email -> do
+            slackInvite email
+            defaultLayout [whamlet|
+                                  <h1>
+                                    Haskell Slackin
+
+                                  <p> Sent invitation to #{email}
+                                  |]
         _ -> defaultLayout
             [whamlet|
                     <h1>
