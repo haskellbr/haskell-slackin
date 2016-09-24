@@ -14,12 +14,23 @@ mkYesod "App" [parseRoutes|
 
 instance Yesod App where
 
+instance RenderMessage App FormMessage where
+    renderMessage _ _ = defaultFormMessage
+
+emailForm = renderDivs $
+    areq emailField "Email address" Nothing
+
 getHomeR :: Handler Html
-getHomeR = defaultLayout $
-    [whamlet|
-<h1>
-  Haskell Slackin
-    |]
+getHomeR = do
+    (widget, enctype) <- generateFormPost emailForm
+    defaultLayout
+        [whamlet|
+                <h1>
+                  Haskell Slackin
+                <form method=post action=@{HomeR} enctype=#{enctype}>
+                  ^{widget}
+                  <button type=submit>Submit
+        |]
 
 main :: IO ()
 main = warp 3000 App
