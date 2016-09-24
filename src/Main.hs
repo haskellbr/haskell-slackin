@@ -33,6 +33,7 @@ deriveJSON defaultOptions ''SlackState
 data App = App { appSlackOrganization :: String
                , appSlackToken        :: String
                , appSlackChan         :: TChan SlackState
+               , appSlackState        :: TVar SlackState
                }
 
 mkYesod "App" [parseRoutes|
@@ -49,22 +50,36 @@ emailForm = renderDivs $
 
 getHomeR :: Handler Html
 getHomeR = do
+    App{..} <- getYesod
+    SlackState{..} <- liftIO $ readTVarIO appSlackState
     webSockets websocketsHandler
     (widget, enctype) <- generateFormPost emailForm
     defaultLayout $ do
-        toWidgetBody [julius|
-                var ws = new WebSocket('//localhost:3000');
-                ws.onmessage = function(event) {
-                  console.log(event);
-                };
-               |]
         [whamlet|
                 <h1>
                   Haskell Slackin
                 <form method=post action=@{HomeR} enctype=#{enctype}>
                   ^{widget}
                   <button type=submit>Submit
+                <h3>
+                  Total members:
+                  <span .members> #{show ssMembers}
+                <h3>
+                  Online Now:
+                  <span .online> #{show ssOnline}
         |]
+
+        toWidgetBody [julius|
+                var ws = new WebSocket('ws://localhost:3000');
+                var membersEl = document.querySelector('.members');
+                var onlineEl = document.querySelector('.online');
+                ws.onmessage = function(event) {
+                  var data = JSON.parse(event.data);
+                  console.log(data);
+                  membersEl.innerText = data.ssMembers;
+                  onlineEl.innerText = data.ssOnline;
+                };
+               |]
 
 slackInvite :: Text -> Handler ()
 slackInvite email = do
@@ -104,8 +119,8 @@ websocketsHandler = do
         st <- liftIO $ atomically (readTChan rchan)
         sendTextData (Aeson.encode st)
 
-slackWorker :: App -> TChan SlackState -> IO ()
-slackWorker App{..} slackState = forever $ do
+slackWorker :: App -> IO ()
+slackWorker App{..} = forever $ do
     putStrLn "Fetching presence"
     res <- getWith
         (defaults
@@ -119,7 +134,10 @@ slackWorker App{..} slackState = forever $ do
             (Vector.filter
                 (\o -> o ^. key "presence" . _String == "active")
                 members)
-    atomically (writeTChan slackState (SlackState nmembers nonline))
+    atomically $ do
+        let ss = SlackState nmembers nonline
+        writeTChan appSlackChan ss
+        writeTVar appSlackState ss
     threadDelay (1000 * 1000 * 30)
 
 main :: IO ()
@@ -127,9 +145,10 @@ main = do
     o <- getEnv "SLACK_ORGANIZATION"
     t <- getEnv "SLACK_TOKEN"
     slackChan <- atomically newBroadcastTChan
-    let app = App o t slackChan
+    slackState <- atomically (newTVar (SlackState 0 0))
+    let app = App o t slackChan slackState
 
-    forkIO $ slackWorker app slackChan
+    forkIO $ slackWorker app
 
     forkIO $ do
         rchan <- atomically $ dupTChan slackChan
