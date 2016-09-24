@@ -51,7 +51,13 @@ getHomeR :: Handler Html
 getHomeR = do
     webSockets websocketsHandler
     (widget, enctype) <- generateFormPost emailForm
-    defaultLayout $
+    defaultLayout $ do
+        toWidgetBody [julius|
+                var ws = new WebSocket('//localhost:3000');
+                ws.onmessage = function(event) {
+                  console.log(event);
+                };
+               |]
         [whamlet|
                 <h1>
                   Haskell Slackin
@@ -114,7 +120,7 @@ slackWorker App{..} slackState = forever $ do
                 (\o -> o ^. key "presence" . _String == "active")
                 members)
     atomically (writeTChan slackState (SlackState nmembers nonline))
-    threadDelay (1000 * 1000 * 60)
+    threadDelay (1000 * 1000 * 30)
 
 main :: IO ()
 main = do
