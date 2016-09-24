@@ -12,6 +12,9 @@ dependencies:
 - wreq
 - lens
 - text
+- stm
+- lens-aeson
+- vector
 
 executables:
   haskell-slackin:

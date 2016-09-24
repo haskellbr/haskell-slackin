@@ -6,8 +6,14 @@
 {-# LANGUAGE RecordWildCards       #-}
 {-# LANGUAGE TemplateHaskell       #-}
 {-# LANGUAGE TypeFamilies          #-}
+import           Control.Concurrent
+import           Control.Concurrent.STM
 import           Control.Lens
+import           Control.Monad
+import           Data.Aeson.Lens
 import           Data.Text (Text)
+import qualified Data.Text as Text
+import qualified Data.Vector as Vector
 import           Network.Wreq
 import           System.Environment
 import           Text.Printf
@@ -70,8 +76,39 @@ postHomeR = do
                       Haskell Slackin
             |]
 
+data SlackState
+    = SlackState { ssMembers :: Int
+                 , ssOnline  :: Int
+                 }
+  deriving (Show)
+
+slackWorker :: App -> TBQueue SlackState -> IO ()
+slackWorker App{..} slackState = forever $ do
+    putStrLn "Fetching presence"
+    res <- getWith
+        (defaults
+            & param "token" .~ [ Text.pack appSlackToken ]
+            & param "presence" .~ [ "1" ])
+        (printf "https://%s.slack.com/api/users.list" appSlackOrganization)
+    putStrLn "Fetched presence:"
+    let Just members = res ^? responseBody . key "members" . _Array
+        nmembers = length members
+        nonline = length
+            (Vector.filter
+                (\o -> o ^. key "presence" . _String == "active")
+                members)
+    atomically (writeTBQueue slackState (SlackState nmembers nonline))
+    threadDelay (1000 * 1000 * 60)
+
 main :: IO ()
 main = do
     o <- getEnv "SLACK_ORGANIZATION"
     t <- getEnv "SLACK_TOKEN"
-    warp 3000 (App o t)
+    let app = App o t
+    tbqueue <- newTBQueueIO 1
+    forkIO $
+        slackWorker app tbqueue
+    forkIO $ forever $ do
+        v <- atomically $ readTBQueue tbqueue
+        print v
+    warp 3000 app
