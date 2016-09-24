@@ -2,6 +2,10 @@
 Uma re-implementação parcial da aplicação de convites do Slack `slackin` em
 Haskell, para servir como um exemplo de um WebApp não trivial em Haskell.
 
+Cada etapa do processo de implementação está separada em um branch do
+repositório. Deve ser possível acompanhar a implementação pelo histórico do
+`git`.
+
 O que você pode esperar aprender aqui, no momento (tenho que limpar os branches
 para fazer um tutorial mais claro):
 
