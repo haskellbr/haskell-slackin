@@ -10,6 +10,8 @@ import           Control.Concurrent
 import           Control.Concurrent.STM
 import           Control.Lens
 import           Control.Monad
+import qualified Data.Aeson as Aeson
+import           Data.Aeson.TH
 import           Data.Aeson.Lens
 import           Data.Text (Text)
 import qualified Data.Text as Text
@@ -18,9 +20,19 @@ import           Network.Wreq
 import           System.Environment
 import           Text.Printf
 import           Yesod
+import           Yesod.WebSockets
+
+data SlackState
+    = SlackState { ssMembers :: Int
+                 , ssOnline  :: Int
+                 }
+  deriving (Show)
+
+deriveJSON defaultOptions ''SlackState
 
 data App = App { appSlackOrganization :: String
                , appSlackToken        :: String
+               , appSlackChan         :: TChan SlackState
                }
 
 mkYesod "App" [parseRoutes|
@@ -37,8 +49,9 @@ emailForm = renderDivs $
 
 getHomeR :: Handler Html
 getHomeR = do
+    webSockets websocketsHandler
     (widget, enctype) <- generateFormPost emailForm
-    defaultLayout
+    defaultLayout $
         [whamlet|
                 <h1>
                   Haskell Slackin
@@ -60,6 +73,7 @@ slackInvite email = do
 
 postHomeR :: Handler Html
 postHomeR = do
+    webSockets websocketsHandler
     ((result, widget), enctype) <- runFormPost emailForm
     case result of
         FormSuccess email -> do
@@ -76,13 +90,15 @@ postHomeR = do
                       Haskell Slackin
             |]
 
-data SlackState
-    = SlackState { ssMembers :: Int
-                 , ssOnline  :: Int
-                 }
-  deriving (Show)
+websocketsHandler :: WebSocketsT Handler ()
+websocketsHandler = do
+    App{..} <- getYesod
+    rchan <- liftIO $ atomically (dupTChan appSlackChan)
+    forever $ do
+        st <- liftIO $ atomically (readTChan rchan)
+        sendTextData (Aeson.encode st)
 
-slackWorker :: App -> TBQueue SlackState -> IO ()
+slackWorker :: App -> TChan SlackState -> IO ()
 slackWorker App{..} slackState = forever $ do
     putStrLn "Fetching presence"
     res <- getWith
@@ -97,18 +113,22 @@ slackWorker App{..} slackState = forever $ do
             (Vector.filter
                 (\o -> o ^. key "presence" . _String == "active")
                 members)
-    atomically (writeTBQueue slackState (SlackState nmembers nonline))
+    atomically (writeTChan slackState (SlackState nmembers nonline))
     threadDelay (1000 * 1000 * 60)
 
 main :: IO ()
 main = do
     o <- getEnv "SLACK_ORGANIZATION"
     t <- getEnv "SLACK_TOKEN"
-    let app = App o t
-    tbqueue <- newTBQueueIO 1
-    forkIO $
-        slackWorker app tbqueue
-    forkIO $ forever $ do
-        v <- atomically $ readTBQueue tbqueue
-        print v
+    slackChan <- atomically newBroadcastTChan
+    let app = App o t slackChan
+
+    forkIO $ slackWorker app slackChan
+
+    forkIO $ do
+        rchan <- atomically $ dupTChan slackChan
+        forever $ do
+            v <- atomically $ readTChan rchan
+            print v
+
     warp 3000 app
