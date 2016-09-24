@@ -1,13 +1,21 @@
-{-# LANGUAGE QuasiQuotes           #-}
-{-# LANGUAGE OverloadedStrings     #-}
-{-# LANGUAGE MultiParamTypeClasses #-}
+{-# LANGUAGE FlexibleContexts      #-}
 {-# LANGUAGE GADTs                 #-}
-{-# LANGUAGE TypeFamilies          #-}
+{-# LANGUAGE MultiParamTypeClasses #-}
+{-# LANGUAGE OverloadedStrings     #-}
+{-# LANGUAGE QuasiQuotes           #-}
+{-# LANGUAGE RecordWildCards       #-}
 {-# LANGUAGE TemplateHaskell       #-}
+{-# LANGUAGE TypeFamilies          #-}
+import           Control.Lens
 import           Data.Text (Text)
+import           Network.Wreq
+import           System.Environment
+import           Text.Printf
 import           Yesod
 
-data App = App
+data App = App { appSlackOrganization :: String
+               , appSlackToken        :: String
+               }
 
 mkYesod "App" [parseRoutes|
 / HomeR GET POST
@@ -33,7 +41,16 @@ getHomeR = do
                   <button type=submit>Submit
         |]
 
-slackInvite email = return ()
+slackInvite :: Text -> Handler ()
+slackInvite email = do
+    App{..} <- getYesod
+    liftIO $ do
+        res <- post
+            (printf "https://%s.slack.com/api/users.admin.invite" appSlackOrganization)
+            [ "email" := email
+            , "token" := appSlackToken
+            ]
+        print (res ^. responseBody)
 
 postHomeR :: Handler Html
 postHomeR = do
@@ -54,4 +71,7 @@ postHomeR = do
             |]
 
 main :: IO ()
-main = warp 3000 App
+main = do
+    o <- getEnv "SLACK_ORGANIZATION"
+    t <- getEnv "SLACK_TOKEN"
+    warp 3000 (App o t)
