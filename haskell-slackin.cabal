@@ -19,7 +19,7 @@ executable haskell-slackin
   hs-source-dirs:
       src
   build-depends:
-      base >=4.9 && <4.10
+      base >=4.8 && <4.10
     , yesod
     , wreq
     , lens

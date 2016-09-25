@@ -55,6 +55,12 @@ getHomeR = do
     webSockets websocketsHandler
     (widget, enctype) <- generateFormPost emailForm
     defaultLayout $ do
+        toWidgetHead [lucius|
+                body {
+                  font-family: sans-serif;
+                }
+        |]
+
         [whamlet|
                 <h1>
                   Haskell Slackin
