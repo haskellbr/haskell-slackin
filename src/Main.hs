@@ -10,12 +10,12 @@ import           Control.Concurrent
 import           Control.Concurrent.STM
 import           Control.Lens
 import           Control.Monad
-import qualified Data.Aeson as Aeson
-import           Data.Aeson.TH
+import qualified Data.Aeson             as Aeson
 import           Data.Aeson.Lens
-import           Data.Text (Text)
-import qualified Data.Text as Text
-import qualified Data.Vector as Vector
+import           Data.Aeson.TH
+import           Data.Text              (Text)
+import qualified Data.Text              as Text
+import qualified Data.Vector            as Vector
 import           Network.Wreq
 import           System.Environment
 import           Text.Printf
@@ -134,16 +134,19 @@ slackWorker App{..} = forever $ do
             & param "presence" .~ [ "1" ])
         (printf "https://%s.slack.com/api/users.list" appSlackOrganization)
     putStrLn "Fetched presence:"
-    let Just members = res ^? responseBody . key "members" . _Array
-        nmembers = length members
-        nonline = length
-            (Vector.filter
-                (\o -> o ^. key "presence" . _String == "active")
-                members)
-    atomically $ do
-        let ss = SlackState nmembers nonline
-        writeTChan appSlackChan ss
-        writeTVar appSlackState ss
+    let mmembers = res ^? responseBody . key "members" . _Array
+    case mmembers of
+        Just members -> do
+            let nmembers = length members
+                nonline = length
+                    (Vector.filter
+                        (\o -> o ^. key "presence" . _String == "active")
+                        members)
+            atomically $ do
+                let ss = SlackState nmembers nonline
+                writeTChan appSlackChan ss
+                writeTVar appSlackState ss
+        _ -> print (res ^. responseBody)
     threadDelay (1000 * 1000 * 30)
 
 main :: IO ()
