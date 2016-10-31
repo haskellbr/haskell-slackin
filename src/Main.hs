@@ -58,6 +58,11 @@ getHomeR = do
         toWidgetHead [lucius|
                 body {
                   font-family: sans-serif;
+                  text-align: center;
+                }
+
+                form label {
+                  display: none;
                 }
         |]
 
