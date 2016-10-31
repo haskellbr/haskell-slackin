@@ -1,4 +1,5 @@
 {-# LANGUAGE FlexibleContexts      #-}
+{-# LANGUAGE FlexibleInstances     #-}
 {-# LANGUAGE GADTs                 #-}
 {-# LANGUAGE MultiParamTypeClasses #-}
 {-# LANGUAGE OverloadedStrings     #-}
@@ -10,9 +11,11 @@ import           Control.Concurrent
 import           Control.Concurrent.STM
 import           Control.Lens
 import           Control.Monad
+import           Control.Monad.Logger
 import qualified Data.Aeson             as Aeson
 import           Data.Aeson.Lens
 import           Data.Aeson.TH
+import           Data.Maybe             (fromMaybe)
 import           Data.Text              (Text)
 import qualified Data.Text              as Text
 import qualified Data.Vector            as Vector
@@ -30,7 +33,8 @@ data SlackState
 
 deriveJSON defaultOptions ''SlackState
 
-data App = App { appSlackOrganization :: String
+data App = App { appPort              :: Int
+               , appSlackOrganization :: String
                , appSlackToken        :: String
                , appSlackChan         :: TChan SlackState
                , appSlackState        :: TVar SlackState
@@ -41,6 +45,9 @@ mkYesod "App" [parseRoutes|
 |]
 
 instance Yesod App where
+
+instance MonadLogger Handler where
+    monadLoggerLog _ _ _ = return $ return ()
 
 instance RenderMessage App FormMessage where
     renderMessage _ _ = defaultFormMessage
@@ -158,9 +165,10 @@ main :: IO ()
 main = do
     o <- getEnv "SLACK_ORGANIZATION"
     t <- getEnv "SLACK_TOKEN"
+    p <- read . fromMaybe "3333" <$> lookupEnv "PORT"
     slackChan <- atomically newBroadcastTChan
     slackState <- atomically (newTVar (SlackState 0 0))
-    let app = App o t slackChan slackState
+    let app = App p o t slackChan slackState
 
     forkIO $ slackWorker app
 
@@ -170,4 +178,4 @@ main = do
             v <- atomically $ readTChan rchan
             print v
 
-    warp 3000 app
+    warp p app
