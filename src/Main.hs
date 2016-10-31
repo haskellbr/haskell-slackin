@@ -139,13 +139,13 @@ websocketsHandler = do
 
 slackWorker :: App -> IO ()
 slackWorker App{..} = forever $ do
-    putStrLn "Fetching presence"
+    putStrLn "Fetching presence..."
     res <- getWith
         (defaults
             & param "token" .~ [ Text.pack appSlackToken ]
             & param "presence" .~ [ "1" ])
         (printf "https://%s.slack.com/api/users.list" appSlackOrganization)
-    putStrLn "Fetched presence:"
+    putStrLn "Fetched presence."
     let mmembers = res ^? responseBody . key "members" . _Array
     case mmembers of
         Just members -> do
