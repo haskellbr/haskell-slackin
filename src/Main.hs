@@ -113,7 +113,7 @@ slackInvite email = do
 postHomeR :: Handler Html
 postHomeR = do
     webSockets websocketsHandler
-    ((result, widget), enctype) <- runFormPost emailForm
+    ((result, _), _) <- runFormPost emailForm
     case result of
         FormSuccess email -> do
             slackInvite email
@@ -148,12 +148,12 @@ slackWorker App{..} = forever $ do
     putStrLn "Fetched presence."
     let mmembers = res ^? responseBody . key "members" . _Array
     case mmembers of
-        Just members -> do
-            let nmembers = length members
+        Just ms -> do
+            let nmembers = length ms
                 nonline = length
                     (Vector.filter
                         (\o -> o ^. key "presence" . _String == "active")
-                        members)
+                        ms)
             atomically $ do
                 let ss = SlackState nmembers nonline
                 writeTChan appSlackChan ss
@@ -170,9 +170,8 @@ main = do
     slackState <- atomically (newTVar (SlackState 0 0))
     let app = App p o t slackChan slackState
 
-    forkIO $ slackWorker app
-
-    forkIO $ do
+    _ <- forkIO $ slackWorker app
+    _ <- forkIO $ do
         rchan <- atomically $ dupTChan slackChan
         forever $ do
             v <- atomically $ readTChan rchan
