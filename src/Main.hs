@@ -45,6 +45,63 @@ mkYesod "App" [parseRoutes|
 |]
 
 instance Yesod App where
+    defaultLayout contents = do
+        PageContent title headTags bodyTags <- widgetToPageContent $ do
+            toWidgetHead [lucius|
+                    .container {
+                      margin-top: 20vh;
+                      max-width: 500px;
+                      text-align: center;
+                      margin-bottom: 80px;
+                    }
+
+                    form input[type=email]:focus {
+                      border-color: #76d176;
+                    }
+
+                    a {
+                      color: #35A4BB;
+                    }
+
+                    button {
+                      background-color: #76d176;
+                      border-color: #76d176;
+                    }
+
+                    form .button-primary {
+                      width: 100%;
+                    }
+
+                    form label {
+                      display: none;
+                    }
+
+                    footer {
+                      text-align: center;
+                    }
+            |]
+
+            contents
+        mmsg <- getMessage
+        withUrlRenderer [hamlet|
+            $doctype 5
+            <html>
+              <head>
+                <title>#{title}
+                <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/milligram/1.2.0/milligram.min.css" />
+                ^{headTags}
+              <body>
+                $maybe msg <- mmsg
+                  <div #message>#{msg}
+                <div .container>
+                  ^{bodyTags}
+                <footer>
+                  <small>
+                    RODANDO EM HASKELL COM <a href="https://github.com/haskellbr/haskell-slackin">HASKELL-SLACKIN</a>
+                  <br />
+                  <small>
+                    FEITO POR <a href="https://github.com/yamadapc">@yamadapc</a>
+        |]
 
 instance MonadLogger Handler where
     monadLoggerLog _ _ _ = return $ return ()
@@ -53,7 +110,8 @@ instance RenderMessage App FormMessage where
     renderMessage _ _ = defaultFormMessage
 
 emailForm = renderDivs $
-    areq emailField "Email address" Nothing
+    areq emailField ("Email address" { fsAttrs = [("placeholder", "voce@haskellbr.com")]
+                                     }) Nothing
 
 getHomeR :: Handler Html
 getHomeR = do
@@ -62,29 +120,16 @@ getHomeR = do
     webSockets websocketsHandler
     (widget, enctype) <- generateFormPost emailForm
     defaultLayout $ do
-        toWidgetHead [lucius|
-                body {
-                  font-family: sans-serif;
-                  text-align: center;
-                }
-
-                form label {
-                  display: none;
-                }
-        |]
-
         [whamlet|
                 <h1>
-                  Haskell Slackin
+                  Entre no Slack da HaskellBR
                 <form method=post action=@{HomeR} enctype=#{enctype}>
-                  ^{widget}
-                  <button type=submit>Submit
-                <h3>
-                  Total members:
-                  <span .members> #{show ssMembers}
-                <h3>
-                  Online Now:
-                  <span .online> #{show ssOnline}
+                  <fieldset>
+                    ^{widget}
+                  <button .button-primary type=submit>
+                    Pedir um convite
+                  <div .members> #{show ssMembers} já estão no chat
+                  <div .online> #{show ssOnline} estão online agora
         |]
 
         toWidgetBody [julius|
@@ -119,14 +164,17 @@ postHomeR = do
             slackInvite email
             defaultLayout [whamlet|
                                   <h1>
-                                    Haskell Slackin
+                                    Entre no Slack da HaskellBR
 
-                                  <p> Sent invitation to #{email}
+                                  <p>
+                                    Um convite foi enviado para #{email}
                                   |]
         _ -> defaultLayout
             [whamlet|
                     <h1>
                       Haskell Slackin
+                    <p>
+                      Ocorreu um erro processando seu pedido...
             |]
 
 websocketsHandler :: WebSocketsT Handler ()
